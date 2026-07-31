@@ -340,10 +340,11 @@ Environment=NODE_ENV=production
 
 [Install]
 WantedBy=multi-user.target
-
+```
 
 ### Service Verification Commands:
 
+```
 # Reload daemon and enable auto-start on boot
 sudo systemctl daemon-reload
 sudo systemctl enable employee-app
@@ -356,7 +357,7 @@ sudo systemctl status employee-app
 sudo journalctl -u employee-app -f
 
 Operational Impact: Configuring systemd ensured that when AWS Application Migration Service (MGN) replicated the server and when the Auto Scaling Group spun up new EC2 nodes, the Node.js application automatically initialized and bound to Port 3000 without manual administrator intervention.
-
+```
 
 ---
 
