@@ -290,6 +290,7 @@ VALUES
 ('Sara', 'HR', 6500),
 ('Ali', 'DevOps', 9000);
 
+---
 
 ### 2. Application Structure & Key Configurations
 
@@ -307,6 +308,8 @@ employee-app/
 
 Environment Variables (.env)
 Note: Post-migration, DB_HOST is updated from localhost to the active Amazon RDS Endpoint.
+
+---
 
 ### 3. Application Process Management (`systemd` Service Integration)
 
