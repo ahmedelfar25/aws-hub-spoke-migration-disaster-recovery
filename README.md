@@ -138,7 +138,7 @@ Both VPCs interconnect securely through **AWS Transit Gateway (TGW)**.
 # 🔀 Detailed Traffic Engineering
 
 ## 1. Inbound Ingress Traffic Flow
-
+```
 User Request
 │
 ▼
@@ -167,11 +167,11 @@ User Request
 │
 ▼
 [ Amazon RDS MySQL ] (Primary DB Port 3306)
-
+```
 ---
 
 ## 2. Outbound Egress Traffic Flow (Updates / External APIs)
-
+```
 [ Private EC2 Instance ]
 │
 ▼
@@ -185,11 +185,11 @@ User Request
 │
 ▼
 [ Internet Gateway ] -> [ External Internet ]
-
+```
 ---
 
 ## 3. Administrative SSH Management Flow
-
+```
 Administrator
 │
 ▼
@@ -206,13 +206,13 @@ Administrator
 │
 ▼
 [ Private EC2 Application Nodes ] (Port 22)
-
+```
 ---
 
 # 🛡 Security Architecture & Automation
 
 The infrastructure follows a multi-layered **Defense-in-Depth** model:
-
+```
 +---------------------------------------------------------------------------------+
 | 1. EDGE SECURITY: Amazon CloudFront + AWS WAF                                   |
 +---------------------------------------------------------------------------------+
@@ -231,6 +231,11 @@ The infrastructure follows a multi-layered **Defense-in-Depth** model:
 +---------------------------------------------------------------------------------+
 | 4. AUTOMATED THREAT RESPONSE: GuardDuty -> Security Hub -> EventBridge -> Lambda|
 +---------------------------------------------------------------------------------+
+```
+
+---
+
+
 ### AWS WAF Protection Rules
 
 - `AWSManagedRulesAmazonIpReputationList`
@@ -295,7 +300,7 @@ VALUES
 ---
 
 ### 2. Application Structure & Key Configurations
-
+```
 employee-app/
 ├── app.js               # Express Server & Middleware Configuration
 ├── db.js                # MySQL2 Connection Pool setup via dotenv
@@ -306,7 +311,7 @@ employee-app/
 └── views/
     ├── index.ejs        # Dashboard UI (Bootstrap 5)
     └── add.ejs          # Employee Registration Form
-
+```
 
 Environment Variables (.env)
 Note: Post-migration, DB_HOST is updated from localhost to the active Amazon RDS Endpoint.
