@@ -289,7 +289,7 @@ VALUES
 ('Ahmed', 'Cloud', 8000),
 ('Sara', 'HR', 6500),
 ('Ali', 'DevOps', 9000);
-
+````
 ---
 
 ### 2. Application Structure & Key Configurations
