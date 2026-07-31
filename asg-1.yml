@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Auto Scaling Group for Ahmed Application
+
+Resources:
+
+# ==========================================================
+# Auto Scaling Group
+# ==========================================================
+
+  AhmedASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+
+      AutoScalingGroupName: Ahmed-ASG
+
+      VPCZoneIdentifier:
+        - !ImportValue AppSubnetA
+        - !ImportValue AppSubnetB
+
+      LaunchTemplate:
+        LaunchTemplateId: !ImportValue AhmedLaunchTemplateId
+        Version: !ImportValue AhmedLaunchTemplateLatestVersion
+
+      MinSize: 2
+      MaxSize: 4
+      DesiredCapacity: 2
+
+      TargetGroupARNs:
+        - !ImportValue AhmedNLBTargetGroupArn
+
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 300
+
+      NewInstancesProtectedFromScaleIn: false
+
+      CapacityRebalance: true
+
+      Tags:
+
+        - Key: Name
+          Value: Ahmed-App
+          PropagateAtLaunch: true
+
+# ==========================================================
+# Scaling Policy
+# ==========================================================
+
+  AhmedTargetTrackingPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+
+      AutoScalingGroupName: !Ref AhmedASG
+
+      PolicyType: TargetTrackingScaling
+
+      TargetTrackingConfiguration:
+
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
+
+        TargetValue: 70
+
+# ==========================================================
+# Outputs
+# ==========================================================
+
+Outputs:
+
+  AutoScalingGroupName:
+    Value: !Ref AhmedASG
+    Export:
+      Name: AhmedASGName
+
+  AutoScalingGroupArn:
+    Value: !GetAtt AhmedASG.AutoScalingGroupARN
+    Export:
+      Name: AhmedASGArn

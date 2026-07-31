@@ -1,0 +1,199 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Ahmed CloudFront and AWS WAF
+
+Resources:
+
+# ==========================================================
+# WAF Web ACL
+# ==========================================================
+
+  AhmedWAF:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+
+      Name: Ahmed-WAF
+
+      Scope: CLOUDFRONT
+
+      DefaultAction:
+        Allow: {}
+
+      VisibilityConfig:
+        CloudWatchMetricsEnabled: true
+        MetricName: Ahmed-WAF
+        SampledRequestsEnabled: true
+
+      Rules:
+
+# ==========================================================
+# Amazon IP Reputation
+# ==========================================================
+
+        - Name: AmazonIpReputation
+
+          Priority: 0
+
+          OverrideAction:
+            None: {}
+
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesAmazonIpReputationList
+
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: AmazonIpReputation
+            SampledRequestsEnabled: true
+
+# ==========================================================
+# Common Rule Set
+# ==========================================================
+
+        - Name: CommonRuleSet
+
+          Priority: 1
+
+          OverrideAction:
+            None: {}
+
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet
+
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: CommonRuleSet
+            SampledRequestsEnabled: true
+
+# ==========================================================
+# Known Bad Inputs
+# ==========================================================
+
+        - Name: KnownBadInputs
+
+          Priority: 2
+
+          OverrideAction:
+            None: {}
+
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesKnownBadInputsRuleSet
+
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: KnownBadInputs
+            SampledRequestsEnabled: true
+
+# ==========================================================
+# SQL Injection
+# ==========================================================
+
+        - Name: SQLi
+
+          Priority: 3
+
+          OverrideAction:
+            None: {}
+
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesSQLiRuleSet
+
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: SQLi
+            SampledRequestsEnabled: true
+
+# ==========================================================
+# CloudFront Distribution
+# ==========================================================
+
+  AhmedCloudFront:
+    Type: AWS::CloudFront::Distribution
+
+    Properties:
+
+      DistributionConfig:
+
+        Enabled: true
+
+        Comment: Ahmed CloudFront Distribution
+
+        HttpVersion: http2
+
+        IPV6Enabled: true
+
+        PriceClass: PriceClass_100
+
+        DefaultRootObject: index.html
+
+        Origins:
+
+          - Id: AhmedALB
+
+            DomainName: !ImportValue AhmedALBDNSName
+
+            CustomOriginConfig:
+
+              HTTPPort: 80
+
+              HTTPSPort: 443
+
+              OriginProtocolPolicy: http-only
+
+              OriginSSLProtocols:
+
+                - TLSv1.2
+
+        DefaultCacheBehavior:
+
+          TargetOriginId: AhmedALB
+
+          ViewerProtocolPolicy: redirect-to-https
+
+          Compress: true
+
+          AllowedMethods:
+
+            - GET
+            - HEAD
+            - OPTIONS
+
+          CachedMethods:
+
+            - GET
+            - HEAD
+
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+
+        ViewerCertificate:
+
+          CloudFrontDefaultCertificate: true
+
+        WebACLId: !GetAtt AhmedWAF.Arn
+
+# ==========================================================
+# Outputs
+# ==========================================================
+
+Outputs:
+
+  CloudFrontDistributionId:
+    Value: !Ref AhmedCloudFront
+    Export:
+      Name: AhmedCloudFrontDistributionId
+
+  CloudFrontDomainName:
+    Value: !GetAtt AhmedCloudFront.DomainName
+    Export:
+      Name: AhmedCloudFrontDomainName
+
+  WebACLArn:
+    Value: !GetAtt AhmedWAF.Arn
+    Export:
+      Name: AhmedWAFArn

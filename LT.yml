@@ -1,0 +1,129 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Launch Template for Ahmed Application
+
+Parameters:
+
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+
+Resources:
+
+# ==========================================================
+# Application Security Group
+# ==========================================================
+
+  AhmedApplicationSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for Application Instances
+
+      VpcId: !ImportValue SpokeVPCId
+
+      SecurityGroupIngress:
+
+# HTTP from Hub VPC (ALB -> Firewall -> TGW -> NLB -> EC2)
+
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 10.0.0.0/16
+
+# HTTPS
+
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 10.0.0.0/16
+
+# SSH from Jump Server subnet
+
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 10.0.6.0/24
+
+        - IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 10.0.0.0/16
+
+      SecurityGroupEgress:
+
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+      Tags:
+
+        - Key: Name
+          Value: Ahmed-App-SG
+
+# ==========================================================
+# Launch Template
+# ==========================================================
+
+  AhmedLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+
+    Properties:
+
+      LaunchTemplateName: Ahmed-LT
+
+      LaunchTemplateData:
+
+        ImageId: !Ref LatestAmiId
+
+        InstanceType: t3.micro
+
+        KeyName: Ahmed-trusted
+
+        Monitoring:
+          Enabled: true
+
+        MetadataOptions:
+          HttpTokens: required
+
+        NetworkInterfaces:
+
+          - DeviceIndex: 0
+
+            AssociatePublicIpAddress: false
+
+            Groups:
+
+              - !Ref AhmedApplicationSG
+
+        TagSpecifications:
+
+          - ResourceType: instance
+
+            Tags:
+
+              - Key: Name
+
+                Value: Ahmed-App
+
+          - ResourceType: volume
+
+            Tags:
+
+              - Key: Name
+
+                Value: Ahmed-App-Volume
+
+Outputs:
+
+  LaunchTemplateId:
+    Value: !Ref AhmedLaunchTemplate
+    Export:
+      Name: AhmedLaunchTemplateId
+
+  LaunchTemplateLatestVersion:
+    Value: !GetAtt AhmedLaunchTemplate.LatestVersionNumber
+    Export:
+      Name: AhmedLaunchTemplateLatestVersion
+
+  ApplicationSecurityGroup:
+    Value: !Ref AhmedApplicationSG
+    Export:
+      Name: AhmedApplicationSecurityGroup

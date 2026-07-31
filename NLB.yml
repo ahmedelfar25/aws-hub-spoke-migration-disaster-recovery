@@ -1,0 +1,99 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Ahmed Internal Network Load Balancer
+
+Resources:
+
+# ==========================================================
+# NLB Target Group
+# ==========================================================
+
+  AhmedNLBTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: Ahmed-NLB-TG
+      VpcId: !ImportValue SpokeVPCId
+      Protocol: TCP
+      Port: 80
+      TargetType: instance
+
+      HealthCheckEnabled: true
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: /
+      HealthCheckPort: traffic-port
+
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 6
+
+      Tags:
+        - Key: Name
+          Value: Ahmed-NLB-TG
+
+# ==========================================================
+# Network Load Balancer
+# ==========================================================
+
+  AhmedNLB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: Ahmed-NLB
+
+      Type: network
+
+      Scheme: internal
+
+      IpAddressType: ipv4
+
+      Subnets:
+        - !ImportValue AppSubnetA
+        - !ImportValue AppSubnetB
+
+      LoadBalancerAttributes:
+        - Key: load_balancing.cross_zone.enabled
+          Value: true
+
+        - Key: deletion_protection.enabled
+          Value: false
+
+      Tags:
+        - Key: Name
+          Value: Ahmed-NLB
+
+# ==========================================================
+# Listener
+# ==========================================================
+
+  AhmedNLBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref AhmedNLB
+
+      Protocol: TCP
+
+      Port: 80
+
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref AhmedNLBTargetGroup
+
+# ==========================================================
+# Outputs
+# ==========================================================
+
+Outputs:
+
+  NLBArn:
+    Value: !Ref AhmedNLB
+    Export:
+      Name: AhmedNLBArn
+
+  NLBDNS:
+    Value: !GetAtt AhmedNLB.DNSName
+    Export:
+      Name: AhmedNLBDNS
+
+  NLBTargetGroupArn:
+    Value: !Ref AhmedNLBTargetGroup
+    Export:
+      Name: AhmedNLBTargetGroupArn

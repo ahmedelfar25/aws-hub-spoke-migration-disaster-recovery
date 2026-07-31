@@ -1,0 +1,159 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Spoke VPC
+
+Resources:
+
+# ==========================================================
+# Spoke VPC
+# ==========================================================
+
+  SpokeVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.1.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: Spoke-VPC
+
+# ==========================================================
+# App Subnets
+# ==========================================================
+
+  AppSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref SpokeVPC
+      CidrBlock: 10.1.0.0/24
+      AvailabilityZone: us-east-2a
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: App-A
+
+  AppSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref SpokeVPC
+      CidrBlock: 10.1.1.0/24
+      AvailabilityZone: us-east-2b
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: App-B
+
+# ==========================================================
+# TGW Subnets
+# ==========================================================
+
+  TGWSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref SpokeVPC
+      CidrBlock: 10.1.2.0/24
+      AvailabilityZone: us-east-2a
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: TGW-A
+
+  TGWSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref SpokeVPC
+      CidrBlock: 10.1.3.0/24
+      AvailabilityZone: us-east-2b
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: TGW-B
+
+# ==========================================================
+# Route Tables
+# ==========================================================
+
+  AppRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref SpokeVPC
+      Tags:
+        - Key: Name
+          Value: App-RT
+
+  AppSubnetAAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref AppRouteTable
+      SubnetId: !Ref AppSubnetA
+
+  AppSubnetBAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref AppRouteTable
+      SubnetId: !Ref AppSubnetB
+
+# ==========================================================
+
+  TGWRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref SpokeVPC
+      Tags:
+        - Key: Name
+          Value: TGW-RT
+
+  TGWSubnetAAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref TGWRouteTable
+      SubnetId: !Ref TGWSubnetA
+
+  TGWSubnetBAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref TGWRouteTable
+      SubnetId: !Ref TGWSubnetB          
+
+# ==========================================================
+# Outputs
+# ==========================================================
+
+Outputs:
+
+  SpokeVPCId:
+    Description: Spoke VPC ID
+    Value: !Ref SpokeVPC
+    Export:
+      Name: SpokeVPCId
+
+  AppSubnetAId:
+    Value: !Ref AppSubnetA
+    Export:
+      Name: AppSubnetA
+
+  AppSubnetBId:
+    Value: !Ref AppSubnetB
+    Export:
+      Name: AppSubnetB
+
+  TGWSubnetAId:
+    Value: !Ref TGWSubnetA
+    Export:
+      Name: SpokeTGWSubnetA
+
+  TGWSubnetBId:
+    Value: !Ref TGWSubnetB
+    Export:
+      Name: SpokeTGWSubnetB 
+  
+  AppRouteTable:
+    Value: !Ref AppRouteTable
+    Export:
+      Name: AppRouteTable
+  
+  SpokeTGWRouteTable:
+    Value: !Ref TGWRouteTable
+    Export:
+      Name: SpokeTGWRouteTable
+

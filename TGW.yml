@@ -1,0 +1,150 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Transit Gateway
+
+Resources:
+
+# ==========================================================
+# Transit Gateway
+# ==========================================================
+
+  AhmedTGW:
+    Type: AWS::EC2::TransitGateway
+    Properties:
+      Description: Ahmed Transit Gateway
+      AmazonSideAsn: 64512
+      AutoAcceptSharedAttachments: disable
+      DefaultRouteTableAssociation: disable
+      DefaultRouteTablePropagation: disable
+      DnsSupport: enable
+      VpnEcmpSupport: enable
+      Tags:
+        - Key: Name
+          Value: Ahmed-TGW
+
+# ==========================================================
+# Hub Attachment
+# ==========================================================
+
+  AhmedHubTGWAttachment:
+    Type: AWS::EC2::TransitGatewayAttachment
+    Properties:
+      TransitGatewayId: !Ref AhmedTGW
+      VpcId: !ImportValue HubVPCId
+      SubnetIds:
+        - !ImportValue HubTGWSubnetA
+        - !ImportValue HubTGWSubnetB
+      Options:
+        ApplianceModeSupport: enable  
+      Tags:
+        - Key: Name
+          Value: Ahmed-hub-TGW-attach
+
+# ==========================================================
+# Spoke Attachment
+# ==========================================================
+
+  AhmedSpokeTGWAttachment:
+    Type: AWS::EC2::TransitGatewayAttachment
+    Properties:
+      TransitGatewayId: !Ref AhmedTGW
+      VpcId: !ImportValue SpokeVPCId
+      SubnetIds:
+        - !ImportValue SpokeTGWSubnetA
+        - !ImportValue SpokeTGWSubnetB
+      Options:
+        ApplianceModeSupport: enable  
+      Tags:
+        - Key: Name
+          Value: Ahmed-Spoke-TGW-attach
+
+# ==========================================================
+# TGW Route Table
+# ==========================================================
+
+  AhmedTGWRouteTable:
+    Type: AWS::EC2::TransitGatewayRouteTable
+    Properties:
+      TransitGatewayId: !Ref AhmedTGW
+      Tags:
+        - Key: Name
+          Value: Ahmed-TGW-RT
+
+# ==========================================================
+# Hub Association
+# ==========================================================
+
+  HubAssociation:
+    Type: AWS::EC2::TransitGatewayRouteTableAssociation
+    Properties:
+      TransitGatewayAttachmentId: !Ref AhmedHubTGWAttachment
+      TransitGatewayRouteTableId: !Ref AhmedTGWRouteTable
+
+# ==========================================================
+# Spoke Association
+# ==========================================================
+
+  SpokeAssociation:
+    Type: AWS::EC2::TransitGatewayRouteTableAssociation
+    Properties:
+      TransitGatewayAttachmentId: !Ref AhmedSpokeTGWAttachment
+      TransitGatewayRouteTableId: !Ref AhmedTGWRouteTable
+
+# ==========================================================
+# Hub Propagation
+# ==========================================================
+
+  HubPropagation:
+    Type: AWS::EC2::TransitGatewayRouteTablePropagation
+    Properties:
+      TransitGatewayAttachmentId: !Ref AhmedHubTGWAttachment
+      TransitGatewayRouteTableId: !Ref AhmedTGWRouteTable
+
+# ==========================================================
+# Spoke Propagation
+# ==========================================================
+
+  SpokePropagation:
+    Type: AWS::EC2::TransitGatewayRouteTablePropagation
+    Properties:
+      TransitGatewayAttachmentId: !Ref AhmedSpokeTGWAttachment
+      TransitGatewayRouteTableId: !Ref AhmedTGWRouteTable
+
+# ==========================================================
+# Route to Hub VPC
+# ==========================================================
+
+  RouteToHub:
+    Type: AWS::EC2::TransitGatewayRoute
+    DependsOn:
+      - HubAssociation
+      - HubPropagation
+    Properties:
+      DestinationCidrBlock: 10.0.0.0/16
+      TransitGatewayAttachmentId: !Ref AhmedHubTGWAttachment
+      TransitGatewayRouteTableId: !Ref AhmedTGWRouteTable
+
+# ==========================================================
+# Route to Spoke VPC
+# ==========================================================
+
+  RouteToSpoke:
+    Type: AWS::EC2::TransitGatewayRoute
+    DependsOn:
+      - SpokeAssociation
+      - SpokePropagation
+    Properties:
+      DestinationCidrBlock: 10.1.0.0/16
+      TransitGatewayAttachmentId: !Ref AhmedSpokeTGWAttachment
+      TransitGatewayRouteTableId: !Ref AhmedTGWRouteTable      
+
+Outputs:
+
+  TransitGatewayId:
+    Value: !Ref AhmedTGW
+    Export:
+      Name: AhmedTGWId
+
+  TransitGatewayRouteTableId:
+    Value: !Ref AhmedTGWRouteTable
+    Export:
+      Name: AhmedTGWRouteTableId

@@ -1,0 +1,365 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Hub VPC Infrastructure
+
+Parameters:
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+
+Resources:
+  # ==========================================================
+  # VPC
+  # ==========================================================
+
+  HubVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: Hub-VPC
+
+  # ==========================================================
+  # Internet Gateway
+  # ==========================================================
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: Hub-IGW
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref HubVPC
+
+  # ==========================================================
+  # Subnets
+  # ==========================================================
+
+  ALBSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref HubVPC
+      CidrBlock: 10.0.0.0/24
+      AvailabilityZone: us-east-2a
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: ALB-A
+
+  ALBSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref HubVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: us-east-2b
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: ALB-B
+
+  FirewallSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref HubVPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: us-east-2a
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: Firewall-A
+
+  FirewallSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref HubVPC
+      CidrBlock: 10.0.3.0/24
+      AvailabilityZone: us-east-2b
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: Firewall-B
+
+  TGWSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref HubVPC
+      CidrBlock: 10.0.4.0/24
+      AvailabilityZone: us-east-2a
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: TGW-A
+
+  TGWSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref HubVPC
+      CidrBlock: 10.0.5.0/24
+      AvailabilityZone: us-east-2b
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: TGW-B
+
+  JumpSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref HubVPC
+      CidrBlock: 10.0.6.0/24
+      AvailabilityZone: us-east-2a
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: Jump
+
+  NATSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref HubVPC
+      CidrBlock: 10.0.7.0/24
+      AvailabilityZone: us-east-2a
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: NAT
+
+  # ==========================================================
+  # Route Tables
+  # ==========================================================
+
+  ALBRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref HubVPC
+      Tags:
+        - Key: Name
+          Value: ALB-RT
+
+  AssocALBA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref ALBRouteTable
+      SubnetId: !Ref ALBSubnetA
+
+  AssocALBB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref ALBRouteTable
+      SubnetId: !Ref ALBSubnetB
+
+  JumpRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref HubVPC
+      Tags:
+        - Key: Name
+          Value: Jump-RT
+
+  AssocJump:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref JumpRouteTable
+      SubnetId: !Ref JumpSubnet
+
+  FirewallRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref HubVPC
+      Tags:
+        - Key: Name
+          Value: Firewall-RT
+
+  AssocFirewallA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref FirewallRouteTable
+      SubnetId: !Ref FirewallSubnetA
+
+  AssocFirewallB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref FirewallRouteTable
+      SubnetId: !Ref FirewallSubnetB
+
+  TGWRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref HubVPC
+      Tags:
+        - Key: Name
+          Value: TGW-RT
+
+  AssocTGWA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref TGWRouteTable
+      SubnetId: !Ref TGWSubnetA
+
+  AssocTGWB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref TGWRouteTable
+      SubnetId: !Ref TGWSubnetB
+
+  NATRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref HubVPC
+      Tags:
+        - Key: Name
+          Value: NAT-RT
+
+  AssocNAT:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref NATRouteTable
+      SubnetId: !Ref NATSubnet
+
+  # ==========================================================
+  # NAT Gateway
+  # ==========================================================
+
+  NATEIP:
+    Type: AWS::EC2::EIP
+    DependsOn: AttachGateway
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: Hub-NAT-EIP
+
+  NATGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NATEIP.AllocationId
+      SubnetId: !Ref NATSubnet
+      Tags:
+        - Key: Name
+          Value: Hub-NATGW
+
+  # ==========================================================
+  # Jump Server Security Group
+  # ==========================================================
+
+  JumpSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Jump Server SG
+      VpcId: !Ref HubVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: Jump-SG
+
+  # ==========================================================
+  # Jump Server
+  # ==========================================================
+
+  JumpServer:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: t3.micro
+      KeyName: Ahmed-Trusted-Key
+      SubnetId: !Ref JumpSubnet
+      SecurityGroupIds:
+        - !Ref JumpSecurityGroup
+      Tags:
+        - Key: Name
+          Value: Jump-Server
+
+# ==========================================================
+# Outputs
+# ==========================================================
+
+Outputs:
+  VPCId:
+    Value: !Ref HubVPC
+    Export:
+      Name: HubVPCId
+
+  InternetGateway:
+    Value: !Ref InternetGateway
+    Export:
+      Name: HubInternetGateway
+
+  NATGateway:
+    Value: !Ref NATGateway
+    Export:
+      Name: HubNATGateway
+
+  JumpServer:
+    Value: !Ref JumpServer
+
+  HubTGWSubnetA:
+    Value: !Ref TGWSubnetA
+    Export:
+      Name: HubTGWSubnetA
+
+  HubTGWSubnetB:
+    Value: !Ref TGWSubnetB
+    Export:
+      Name: HubTGWSubnetB
+
+  HubFirewallSubnetA:
+    Value: !Ref FirewallSubnetA
+    Export:
+      Name: HubFirewallSubnetA
+
+  HubFirewallSubnetB:
+    Value: !Ref FirewallSubnetB
+    Export:
+      Name: HubFirewallSubnetB
+
+  HubALBSubnetA:
+    Value: !Ref ALBSubnetA
+    Export:
+      Name: HubALBSubnetA
+
+  HubALBSubnetB:
+    Value: !Ref ALBSubnetB
+    Export:
+      Name: HubALBSubnetB
+
+  HubALBRouteTable:
+    Value: !Ref ALBRouteTable
+    Export:
+      Name: HubALBRouteTable
+
+  HubJumpRouteTable:
+    Value: !Ref JumpRouteTable
+    Export:
+      Name: HubJumpRouteTable
+
+  HubFirewallRouteTable:
+    Value: !Ref FirewallRouteTable
+    Export:
+      Name: HubFirewallRouteTable
+
+  HubTGWRouteTable:
+    Value: !Ref TGWRouteTable
+    Export:
+      Name: HubTGWRouteTable
+
+  HubNATRouteTable:
+    Value: !Ref NATRouteTable
+    Export:
+      Name: HubNATRouteTable

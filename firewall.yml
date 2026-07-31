@@ -1,0 +1,95 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: AWS Network Firewall
+
+Resources:
+  # ==========================================================
+  # Stateful Rule Group
+  # ==========================================================
+
+  AhmedStatefulRuleGroup:
+    Type: AWS::NetworkFirewall::RuleGroup
+    Properties:
+      Capacity: 100
+      RuleGroupName: Ahmed-Stateful-RuleGroup
+      Type: STATEFUL
+      Description: Allow Hub and Spoke traffic
+      RuleGroup:
+        RulesSource:
+          RulesString: |
+
+            pass tcp 10.0.6.0/24 any -> 10.1.0.0/16 22 (sid:1001;)
+            pass tcp 10.1.0.0/16 any -> 10.0.6.0/24 22 (sid:1002;)
+            pass tcp 10.0.6.0/24 any -> 10.1.0.0/16 80 (sid:1003;)
+            pass tcp 10.1.0.0/16 any -> 10.0.6.0/24 80 (sid:1004;)
+            pass tcp 10.0.0.0/24 any -> 10.1.0.0/16 80 (sid:1005;)
+            pass tcp 10.1.0.0/16 any -> 10.0.0.0/24 80 (sid:1006;)
+            pass tcp 10.0.1.0/24 any -> 10.1.0.0/16 80 (sid:1007;)
+            pass tcp 10.1.0.0/16 any -> 10.0.1.0/24 80 (sid:1008;)
+            pass tcp 10.0.0.0/24 any -> 10.1.0.0/16 443 (sid:1009;)
+            pass tcp 10.1.0.0/16 any -> 10.0.0.0/24 443 (sid:1010;)
+            pass tcp 10.0.1.0/24 any -> 10.1.0.0/16 443 (sid:1011;)
+            pass tcp 10.1.0.0/16 any -> 10.0.1.0/24 443 (sid:1012;) 
+            pass tcp 10.1.0.0/16 any -> 10.0.7.0/24 443 (sid:1013;)
+            pass tcp 10.0.7.0/24 any -> 10.1.0.0/16 443 (sid:1014;)
+            pass tcp 10.1.0.0/16 any -> 10.0.7.0/24 80 (sid:1015;)
+            pass tcp 10.0.7.0/24 any -> 10.1.0.0/16 80 (sid:1016;)
+            pass udp any any -> any 53 (sid:1017;)
+            pass tcp any any -> any 53 (sid:1018;)
+
+  # ==========================================================
+  # Firewall Policy
+  # ==========================================================
+
+  AhmedFirewallPolicy:
+    Type: AWS::NetworkFirewall::FirewallPolicy
+    Properties:
+      FirewallPolicyName: Ahmed-FW-Policy
+      FirewallPolicy:
+        StatefulEngineOptions:
+          RuleOrder: DEFAULT_ACTION_ORDER
+
+        StatelessDefaultActions:
+          - aws:forward_to_sfe
+
+        StatelessFragmentDefaultActions:
+          - aws:forward_to_sfe
+
+        StatefulRuleGroupReferences:
+          - ResourceArn: !Ref AhmedStatefulRuleGroup
+
+  # ==========================================================
+  # Network Firewall
+  # ==========================================================
+
+  AhmedFirewall:
+    Type: AWS::NetworkFirewall::Firewall
+    Properties:
+      FirewallName: Ahmed-FW
+
+      FirewallPolicyArn: !Ref AhmedFirewallPolicy
+
+      VpcId: !ImportValue HubVPCId
+
+      DeleteProtection: false
+      FirewallPolicyChangeProtection: false
+      SubnetChangeProtection: false
+
+      SubnetMappings:
+        - SubnetId: !ImportValue HubFirewallSubnetA
+
+        - SubnetId: !ImportValue HubFirewallSubnetB
+
+# ==========================================================
+# Outputs
+# ==========================================================
+
+Outputs:
+  FirewallArn:
+    Value: !Ref AhmedFirewall
+    Export:
+      Name: AhmedFirewallArn
+
+  FirewallPolicyArn:
+    Value: !Ref AhmedFirewallPolicy
+    Export:
+      Name: AhmedFirewallPolicyArn

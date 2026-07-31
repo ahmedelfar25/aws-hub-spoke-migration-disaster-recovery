@@ -1,0 +1,152 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Ahmed Application Load Balancer
+
+Resources:
+  # ==========================================================
+  # Security Group
+  # ==========================================================
+
+  AhmedALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for Ahmed ALB
+      VpcId: !ImportValue HubVPCId
+
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+      Tags:
+        - Key: Name
+          Value: Ahmed-ALB-SG
+
+  # ==========================================================
+  # ALB Target Group
+  # ==========================================================
+
+  AhmedALBTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: Ahmed-ALB-TG
+
+      VpcId: !ImportValue HubVPCId
+
+      TargetType: ip
+
+      Protocol: HTTP
+
+      Port: 80
+
+      HealthCheckEnabled: true
+
+      HealthCheckProtocol: HTTP
+
+      HealthCheckPath: /
+
+      HealthCheckPort: traffic-port
+
+      HealthyThresholdCount: 3
+
+      UnhealthyThresholdCount: 3
+
+      HealthCheckIntervalSeconds: 30
+
+      HealthCheckTimeoutSeconds: 6
+
+      Matcher:
+        HttpCode: 200-399
+
+      Tags:
+        - Key: Name
+          Value: Ahmed-ALB-TG
+
+  # ==========================================================
+  # Application Load Balancer
+  # ==========================================================
+
+  AhmedALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: Ahmed-ALB
+
+      Type: application
+
+      Scheme: internet-facing
+
+      IpAddressType: ipv4
+
+      SecurityGroups:
+        - !Ref AhmedALBSecurityGroup
+
+      Subnets:
+        - !ImportValue HubALBSubnetA
+        - !ImportValue HubALBSubnetB
+
+      LoadBalancerAttributes:
+        - Key: deletion_protection.enabled
+          Value: false
+
+        - Key: idle_timeout.timeout_seconds
+          Value: 60
+
+      Tags:
+        - Key: Name
+          Value: Ahmed-ALB
+
+  # ==========================================================
+  # Listener
+  # ==========================================================
+
+  AhmedALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref AhmedALB
+
+      Protocol: HTTP
+
+      Port: 80
+
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref AhmedALBTargetGroup
+
+# ==========================================================
+# Outputs
+# ==========================================================
+
+Outputs:
+  ALBArn:
+    Value: !Ref AhmedALB
+    Export:
+      Name: AhmedALBArn
+
+  ALBDNS:
+    Value: !GetAtt AhmedALB.DNSName
+    Export:
+      Name: AhmedALBDNS
+
+  ALBTargetGroupArn:
+    Value: !Ref AhmedALBTargetGroup
+    Export:
+      Name: AhmedALBTargetGroupArn
+
+  ALBSecurityGroup:
+    Value: !Ref AhmedALBSecurityGroup
+    Export:
+      Name: AhmedALBSecurityGroup
+
+  ALBDNSName:
+    Value: !GetAtt AhmedALB.DNSName
+    Export:
+      Name: AhmedALBDNSName
