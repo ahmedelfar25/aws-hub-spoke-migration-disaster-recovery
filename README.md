@@ -134,11 +134,6 @@ Both VPCs interconnect securely through **AWS Transit Gateway (TGW)**.
 
 ---
 
-# 🔀 Detailed Traffic Engineering
-
-## 1. Inbound Ingress Traffic Flow
-
-Markdown
 
 # 🔀 Detailed Traffic Engineering
 
@@ -218,17 +213,24 @@ Administrator
 
 The infrastructure follows a multi-layered **Defense-in-Depth** model:
 
-+-------------------------------------------------------------------+
-| 1. EDGE SECURITY: Amazon CloudFront + AWS WAF |
-+-------------------------------------------------------------------+
-| 2. NETWORK INSPECTION: AWS Network Firewall + Security Groups |
-+-------------------------------------------------------------------+
-| 3. COMPUTE ISOLATION: Private Subnets + IAM Roles (No Keys) |
-+-------------------------------------------------------------------+
-| 4. AUTOMATED THREAT RESPONSE: GuardDuty -> Security Hub -> |
-| EventBridge -> AWS Lambda |
-+-------------------------------------------------------------------+
-
++---------------------------------------------------------------------------------+
+| 1. EDGE SECURITY: Amazon CloudFront + AWS WAF                                   |
++---------------------------------------------------------------------------------+
+│
+▼
++---------------------------------------------------------------------------------+
+| 2. NETWORK INSPECTION: AWS Network Firewall + Security Groups                   |
++---------------------------------------------------------------------------------+
+│
+▼
++---------------------------------------------------------------------------------+
+| 3. COMPUTE ISOLATION: Private Subnets + IAM Roles (No Keys)                     |
++---------------------------------------------------------------------------------+
+│
+▼
++---------------------------------------------------------------------------------+
+| 4. AUTOMATED THREAT RESPONSE: GuardDuty -> Security Hub -> EventBridge -> Lambda|
++---------------------------------------------------------------------------------+
 ### AWS WAF Protection Rules
 
 - `AWSManagedRulesAmazonIpReputationList`
