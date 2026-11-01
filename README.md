@@ -353,16 +353,6 @@ The following outcomes have been confirmed by the project owner:
 
 Other tests such as exact measured RTO/RPO, full AZ-failure testing, sustained load testing, and repeatable clean-account deployment are not claimed here unless separately measured and documented.
 
-## Security and operational notes
-
-- Never commit `.env`, database passwords, access keys, private keys, or other secrets.
-- Rotate any credential that has previously been committed to a public repository.
-- Restrict SSH ingress to trusted administration paths; prefer AWS Systems Manager Session Manager where practical.
-- Review security groups and Network Firewall rules using least privilege.
-- Use HTTPS between CloudFront and the origin where supported and correctly configured. Verify the actual origin protocol policy and ALB listener/certificate configuration before claiming end-to-end encrypted origin traffic.
-- Ensure application instances do not depend on manually configured local state if they are expected to be replaceable by an Auto Scaling Group.
-- Define backup retention, restore testing, replication lag monitoring, and a documented DR runbook.
-
 ## Author
 
 **Ahmed Elfar**
