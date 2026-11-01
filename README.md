@@ -52,7 +52,7 @@ The primary environment is split into two VPCs:
 
 The primary application traffic path is conceptually:
 
-````text
+```text
 Internet users
     |
     v
@@ -78,35 +78,35 @@ EC2 instances in an Auto Scaling Group
     |
     v
 Amazon RDS for MySQL (primary database)
+```
 
 ### Primary Network Infrastructure Evidence
 
 - Transit Gateway Attachments
-![Hub Transit Gateway Attachment](screenshots/Transit-Gateway-Attachments.png)
+  ![Hub Transit Gateway Attachment](screenshots/Transit-Gateway-Attachments.png)
 
 - Network Firewall Endpoints
-![Network Firewall Endpoint](screenshots/Network-Firewall-Endpoints.png)
+  ![Network Firewall Endpoint](screenshots/Network-Firewall-Endpoints.png)
 
 - Firewall Route Table
-![Firewall Route Table](screenshots/Firewall-Route-Tables.png)
+  ![Firewall Route Table](screenshots/Firewall-Route-Tables.png)
 
 - ALB Routing
-![ALB Routing](screenshots/ALB-Routing.png)
+  ![ALB Routing](screenshots/ALB-Routing.png)
 
 - Firewall Policy
-![Firewall Policy](screenshots/Firewall-Policy.png)
+  ![Firewall Policy](screenshots/Firewall-Policy.png)
 
 ### Load Balancing and Compute Evidence
 
 - Internal NLB
-![Internal NLB](screenshots/Internal-NLB.png)
+  ![Internal NLB](screenshots/Internal-NLB.png)
 
 - Primary Auto Scaling Group
-![Primary Auto Scaling Group](screenshots/Primary-Auto-Scaling-Group.png)
+  ![Primary Auto Scaling Group](screenshots/Primary-Auto-Scaling-Group.png)
 
 - Custom AMI
-![Custom AMI](screenshots/Custom-AMI.png)
-
+  ![Custom AMI](screenshots/Custom-AMI.png)
 
 The exact route-table entries and firewall endpoint routing are environment-specific. Some of these associations and target registrations were completed manually after the CloudFormation stacks were deployed.
 
@@ -138,7 +138,7 @@ AWS Lambda function
           |
           v
 EC2 StopInstances API action
-````
+```
 
 The GuardDuty → EventBridge → Lambda response was tested successfully. The Lambda function in the collected project evidence is named `StopCompromisedEC2`. Its action is to stop the EC2 instance identified in a matching finding. Stopping an instance is an automated containment action; it is not equivalent to full forensic isolation or remediation.
 
