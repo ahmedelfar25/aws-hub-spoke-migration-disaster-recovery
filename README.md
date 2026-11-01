@@ -1,285 +1,254 @@
-# 🚀 Enterprise Employee Management Application on AWS (Migration, DR, Security Automation & IaC)
+# AWS Hub-and-Spoke Migration & Multi-Region Disaster Recovery
 
-A production-ready Enterprise AWS solution featuring **Live Application Migration**, **Multi-Region Disaster Recovery**, **Hub-and-Spoke Network Architecture**, **Stateful Traffic Inspection**, **Automated Threat Response**, and **Infrastructure as Code (IaC)** using **AWS CloudFormation**.
+A hands-on AWS project that migrates an Employee Management application to AWS, places the workload behind a centralized Hub-and-Spoke network, adds edge and network security controls, and validates regional disaster recovery by promoting an Amazon RDS cross-Region read replica and running the application in the DR Region.
 
-The solution was built following the **AWS Well-Architected Framework** principles and simulates a real-world enterprise environment spanning two AWS Regions:
+> **Project scope:** This repository contains the application files and a set of CloudFormation templates. It does **not** contain every resource configuration used in the deployed environment. Several components were created or completed manually in the AWS Console/CLI. The sections below distinguish repository-managed infrastructure from manually configured resources so the repository is not mistaken for a complete one-click deployment package.
 
-- **Primary Region:** US East (Ohio) (`us-east-2`)
-- **Disaster Recovery Region:** Canada (Central) (`ca-central-1`)
+## Project at a glance
 
-Incoming internet traffic is optimized via **Amazon CloudFront**, protected at Edge by **AWS WAF**, routed through an **Internet-facing Application Load Balancer (ALB)**, deeply inspected by **AWS Network Firewall**, routed across **AWS Transit Gateway (TGW)** to an **Internal Network Load Balancer (NLB)**, and distributed across EC2 instances inside an **Auto Scaling Group**. The database utilizes **Amazon RDS MySQL Multi-AZ** with **Cross-Region Asynchronous Read Replication**.
+| Item                     | Value                                                                                  |
+| ------------------------ | -------------------------------------------------------------------------------------- |
+| Cloud provider           | Amazon Web Services (AWS)                                                              |
+| Primary Region           | US East (Ohio) — `us-east-2`                                                           |
+| Disaster Recovery Region | Canada (Central) — `ca-central-1`                                                      |
+| Application              | Employee Management System                                                             |
+| Application stack        | Node.js, Express, EJS, MySQL                                                           |
+| Migration service        | AWS Application Migration Service (MGN)                                                |
+| Infrastructure as Code   | AWS CloudFormation for selected network, load-balancing, and compute components        |
+| DR approach              | Cross-Region Amazon RDS MySQL read replica, manual promotion, and application failover |
+| Edge protection          | Amazon CloudFront integrated with AWS WAF                                              |
+| Threat response          | Amazon GuardDuty → Amazon EventBridge → AWS Lambda                                     |
 
-![AWS Architecture Diagram](./Architecture.png)
+## What the project demonstrates
 
----
+- Migrating a server-based application to AWS using AWS MGN.
+- Separating the application tier from its database and connecting the application to Amazon RDS for MySQL.
+- Building a Hub-and-Spoke network in the primary Region with AWS Transit Gateway.
+- Inspecting network traffic with AWS Network Firewall.
+- Distributing application traffic through an internet-facing Application Load Balancer and an internal Network Load Balancer.
+- Running application instances through an EC2 Auto Scaling Group.
+- Protecting the public application endpoint with CloudFront and AWS WAF managed rules.
+- Replicating the database to a second Region, promoting the read replica, and validating that the application can run in the DR Region.
+- Automating a response to selected GuardDuty findings with EventBridge and Lambda.
 
-# 📖 Project Overview
+## Architecture
 
-This project demonstrates how to migrate, secure, scale, automate, and operate a full-stack production application on AWS.
+### Full infrastructure architecture diagram
 
-The solution transforms a legacy single-server application into a highly available, self-healing, multi-region architecture. The complete network and compute infrastructure is provisioned using **AWS CloudFormation**, incorporating automated incident response workflows through **Amazon GuardDuty**, **AWS Security Hub**, **Amazon EventBridge**, and **AWS Lambda**.
+The diagram below provides a consolidated visual overview of the primary Region, DR Region, VPCs, Availability Zones, subnet tiers, load balancers, compute layer, database replication, migration workflow, and security automation.
 
----
+![AWS Employee Management System — Hub-and-Spoke, Migration, and Multi-Region Disaster Recovery](screenshots/architecture.png)
 
-# 🎯 Project Objectives
+> **Diagram accuracy note:** This is an architectural overview, not a deployable network plan. The subnet CIDRs, AZ placement, and supporting-service icons shown in the illustration are visual references and must be checked against the actual deployed VPCs and AWS account before being treated as authoritative. In particular, the Route 53/failover path should not be interpreted as proof of automated DNS failover; the tested DR process documented below involved manually promoting the RDS read replica and switching the DR application to the promoted database. Only resources and behaviors confirmed in the project documentation should be considered implemented.
 
-- **Live Application Migration:** Migrate an on-premises web application to AWS using **AWS Application Migration Service (MGN)** with minimal downtime.
-- **Enterprise Network Segmentation:** Implement a secure **Hub-and-Spoke** architecture using **AWS Transit Gateway**.
-- **Centralized Security Inspection:** Perform deep packet inspection on all inbound/outbound traffic using **AWS Network Firewall**.
-- **High Availability & Self-Healing:** Eliminate single points of failure across multiple Availability Zones using **ALB**, **Internal NLB**, **Auto Scaling Groups**, and **RDS Multi-AZ**.
-- **Multi-Region Disaster Recovery:** Safeguard business continuity using **RDS Cross-Region Read Replica** with promotion-on-failure capabilities.
-- **Automated Incident Response:** Detect threats via **GuardDuty** & **Security Hub**, triggering **EventBridge** and **Lambda** to isolate compromised compute nodes automatically.
-- **Edge Security & CDN Acceleration:** Protect against web exploits via **AWS WAF** managed rule sets and reduce application latency using **Amazon CloudFront**.
-- **Infrastructure as Code:** Automate the entire infrastructure provisioning cycle using modular **AWS CloudFormation** templates.
+### Primary Region — `us-east-2`
 
----
+The primary environment is split into two VPCs:
 
-# 🏗 Architecture Diagram
+- **Hub VPC** — centralized ingress, administration, NAT egress, and network inspection components.
+  ![Hub VPC Resource Map](screenshots/Hub-vpc-Copy.png)
+- **Spoke VPC** — application workload and internal load balancing.
+  ![Spoke VPC Resource Map](screenshots/spoke-vpc.png)
 
-                        [ Internet Users ]
-                                │
-                                ▼
-                       [ Amazon CloudFront ]
-                                │
-                                ▼
-                           [ AWS WAF ]
-                                │
-                      [ Internet Gateway ]
-                                │
-                ┌───────────────┴───────────────┐
-                │        PRIMARY REGION         │
-                │    US East (Ohio) us-east-2   │
-                └───────────────┬───────────────┘
-                                │
-                   [ Application Load Balancer ] (Hub VPC)
-                                │
-                    [ AWS Network Firewall ] (Hub VPC)
-                                │
-                    [ AWS Transit Gateway ]
-                                │
-                   [ Internal Network Load Balancer ] (Spoke VPC)
-                                │
-                   [ Auto Scaling Group (EC2) ] (Spoke VPC)
-                                │
-                    [ Amazon RDS MySQL Multi-AZ ]
-                                │
-                     (Cross-Region Replication)
-                                │
-                                ▼
-                ┌───────────────┴───────────────┐
-                │   DISASTER RECOVERY REGION    │
-                │  Canada (Central) ca-central-1│
-                └───────────────┬───────────────┘
-                                │
-                   [ RDS Cross-Region Read Replica ]
+The primary application traffic path is conceptually:
 
-# 🌐 Network Architecture & Design
+````text
+Internet users
+    |
+    v
+Amazon CloudFront
+    |
+    v
+AWS WAF (Web ACL associated with CloudFront)
+    |
+    v
+Internet-facing Application Load Balancer (Hub VPC)
+    |
+    v
+AWS Network Firewall inspection
+    |
+    v
+AWS Transit Gateway
+    |
+    v
+Internal Network Load Balancer (Spoke VPC)
+    |
+    v
+EC2 instances in an Auto Scaling Group
+    |
+    v
+Amazon RDS for MySQL (primary database)
 
-The primary region infrastructure is isolated into two Virtual Private Clouds (VPCs):
+### Primary Network Infrastructure Evidence
 
-1. **Hub VPC (`10.0.0.0/16`)** – Acts as the centralized entry point, hosting ingress load balancers, egress gateways, management bastions, and inspection firewalls.
-2. **Spoke VPC (`10.1.0.0/16`)** – Hosts private application compute nodes and database workloads with zero direct internet access.
+- Transit Gateway Attachments
+![Hub Transit Gateway Attachment](screenshots/Transit-Gateway-Attachments.png)
 
-Both VPCs interconnect securely through **AWS Transit Gateway (TGW)**.
+- Network Firewall Endpoints
+![Network Firewall Endpoint](screenshots/Network-Firewall-Endpoints.png)
 
----
+- Firewall Route Table
+![Firewall Route Table](screenshots/Firewall-Route-Tables.png)
 
-## Hub VPC Breakdown
+- ALB Routing
+![ALB Routing](screenshots/ALB-Routing.png)
 
-- **VPC Name:** `Hub-VPC`
-- **CIDR Block:** `10.0.0.0/16`
+- Firewall Policy
+![Firewall Policy](screenshots/Firewall-Policy.png)
 
-### Subnet Layout
+### Load Balancing and Compute Evidence
 
-| Subnet Name         | CIDR Block    | Availability Zone | Purpose                                   |
-| :------------------ | :------------ | :---------------- | :---------------------------------------- |
-| **ALBSubnetA**      | `10.0.0.0/24` | `us-east-2a`      | Internet-facing Application Load Balancer |
-| **ALBSubnetB**      | `10.0.1.0/24` | `us-east-2b`      | Internet-facing Application Load Balancer |
-| **FirewallSubnetA** | `10.0.2.0/24` | `us-east-2a`      | AWS Network Firewall Endpoint             |
-| **FirewallSubnetB** | `10.0.3.0/24` | `us-east-2b`      | AWS Network Firewall Endpoint             |
-| **TGWSubnetA**      | `10.0.4.0/24` | `us-east-2a`      | Transit Gateway Attachment Endpoint       |
-| **TGWSubnetB**      | `10.0.5.0/24` | `us-east-2b`      | Transit Gateway Attachment Endpoint       |
-| **JumpSubnet**      | `10.0.6.0/24` | `us-east-2a`      | Administrative Bastion (Jump Server)      |
-| **NATSubnet**       | `10.0.7.0/24` | `us-east-2a`      | NAT Gateway for Outbound Egress           |
+- Internal NLB
+![Internal NLB](screenshots/Internal-NLB.png)
 
-### Core Hub Resources
+- Primary Auto Scaling Group
+![Primary Auto Scaling Group](screenshots/Primary-Auto-Scaling-Group.png)
 
-- **Internet Gateway (`Hub-IGW`):** Handles external communication for public subnets.
-- **Application Load Balancer (`Ahmed-ALB`):** Receives HTTPS/HTTP traffic from CloudFront and targets the private ENI IP addresses of the Internal NLB.
-- **AWS Network Firewall (`Ahmed-FW`):** Positioned between the ALB and Transit Gateway for stateful traffic filtering.
-- **NAT Gateway (`Hub-NATGW`):** Provides private Spoke instances with secure outbound access for updates/patches.
-- **Jump Server (`Jump-Server`):** Hardened EC2 instance providing secure administrative SSH access to the private application instances.
-
----
-
-## Spoke VPC Breakdown
-
-- **VPC Name:** `Spoke-VPC`
-- **CIDR Block:** `10.1.0.0/16`
-
-### Subnet Layout
-
-| Subnet Name    | CIDR Block    | Availability Zone | Purpose                                    |
-| :------------- | :------------ | :---------------- | :----------------------------------------- |
-| **AppSubnetA** | `10.1.0.0/24` | `us-east-2a`      | Private Application Servers & Internal NLB |
-| **AppSubnetB** | `10.1.1.0/24` | `us-east-2b`      | Private Application Servers & Internal NLB |
-| **TGWSubnetA** | `10.1.2.0/24` | `us-east-2a`      | Transit Gateway Attachment Endpoint        |
-| **TGWSubnetB** | `10.1.3.0/24` | `us-east-2b`      | Transit Gateway Attachment Endpoint        |
-
-### Core Spoke Resources
-
-- **Internal Network Load Balancer (`Ahmed-NLB`):** Layer-4 pass-through load balancer routing high-throughput traffic directly to application nodes.
-- **Auto Scaling Group (`Ahmed-ASG`):** Automatically provisions and terminates EC2 application instances based on demand and health status (Min: 2, Desired: 2, Max: 4).
-- **Amazon RDS MySQL:** Multi-AZ deployment spanning private subnets with automated backups and cross-region replication.
-
----
+- Custom AMI
+![Custom AMI](screenshots/Custom-AMI.png)
 
 
-# 🔀 Detailed Traffic Engineering
+The exact route-table entries and firewall endpoint routing are environment-specific. Some of these associations and target registrations were completed manually after the CloudFormation stacks were deployed.
 
-## 1. Inbound Ingress Traffic Flow
+### Disaster Recovery Region — `ca-central-1`
+
+![DR VPC Resource Map](screenshots/DR-VPC.png)
+![DR Application Load Balancer](screenshots/DR-Application-Load-Balancer.png)
+
+The DR environment includes a separate VPC and application-side resources, including an Application Load Balancer and Auto Scaling Group. The database is replicated from the primary Region using an Amazon RDS cross-Region read replica.
+
+The DR exercise was performed and validated:
+
+1. The read replica in `ca-central-1` was promoted to a standalone writable database.
+2. The application environment in the DR Region was configured to use the promoted database.
+3. The application was started and tested in `ca-central-1` after failover.
+
+This is a **manual recovery workflow** as documented here. Do not interpret it as automatic regional failover unless automated DNS/application cutover has separately been implemented and tested.
+
+### Security automation flow
+
+```text
+Amazon GuardDuty finding
+          |
+          v
+Amazon EventBridge rule
+          |
+          v
+AWS Lambda function
+          |
+          v
+EC2 StopInstances API action
+````
+
+The GuardDuty → EventBridge → Lambda response was tested successfully. The Lambda function in the collected project evidence is named `StopCompromisedEC2`. Its action is to stop the EC2 instance identified in a matching finding. Stopping an instance is an automated containment action; it is not equivalent to full forensic isolation or remediation.
+
+## Main AWS components
+
+| Area                   | Components                                                               | Purpose                                                   |
+| ---------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------- |
+| Networking             | Hub VPC, Spoke VPC, subnets, route tables, Internet Gateway, NAT Gateway | Network segmentation and connectivity                     |
+| Inter-VPC connectivity | Transit Gateway, VPC attachments, TGW route table and routes             | Connect Hub and Spoke VPCs                                |
+| Traffic inspection     | AWS Network Firewall, firewall policy and rule group                     | Inspect and control routed traffic                        |
+| Ingress                | Application Load Balancer                                                | Public application entry point in the Hub VPC             |
+| Internal distribution  | Network Load Balancer                                                    | Forward traffic to application instances in the Spoke VPC |
+| Compute                | EC2, Launch Template, Auto Scaling Group, AMI                            | Run and scale the application tier                        |
+| Database               | Amazon RDS for MySQL                                                     | Managed application database                              |
+| Migration              | AWS Application Migration Service (MGN)                                  | Replicate and cut over the source server                  |
+| Edge                   | CloudFront and AWS WAF Web ACL                                           | CDN delivery and web request filtering                    |
+| Threat detection       | Amazon GuardDuty                                                         | Detect suspicious activity and generate findings          |
+| Event automation       | Amazon EventBridge and AWS Lambda                                        | Trigger the tested EC2 stop response                      |
+| DR                     | DR VPC, DR ALB, DR Auto Scaling Group, RDS cross-Region read replica     | Recover the application in another Region                 |
+
+## Repository contents
+
+The current repository snapshot contains these principal files:
+
+| File                               | Role                                                                                    |
+| ---------------------------------- | --------------------------------------------------------------------------------------- |
+| `hub-vpc-us-east-2.yml`            | Hub VPC, subnets, route-table resources, NAT Gateway, and Jump Server resources         |
+| `spoke-vpc-us-east-2.yml`          | Spoke VPC, application subnets, and route-table resources                               |
+| `TGW.yml`                          | Transit Gateway, attachments, route-table associations/propagations, and routes         |
+| `firewall.yml`                     | Network Firewall rule group, policy, and firewall                                       |
+| `NLB.yml`                          | Internal Network Load Balancer and target group                                         |
+| `ALB.yml`                          | Application Load Balancer, listener, target group, and related security group resources |
+| `LT.yml`                           | EC2 Launch Template and application instance security group                             |
+| `asg-1.yml`                        | Auto Scaling Group and scaling policy                                                   |
+| `cloud-front&waf.yml`              | CloudFront distribution and WAF Web ACL definition                                      |
+| `app.js`, `db.js`, `employee.js`   | Node.js application and database/route code (see repository structure note below)       |
+| `index.ejs`, `add.ejs`             | EJS application views                                                                   |
+| `assets/architecture-overview.png` | Full infrastructure architecture diagram                                                |
+
+### Important repository limitations
+
+The uploaded repository snapshot is not yet a complete, reproducible application package:
+
+- `app.js` imports `./routes/employee`, but the supplied `employee.js` is at the repository root. It needs to be placed at `routes/employee.js` or the import needs to be changed.
+- `app.js` serves static files from `public/`, but that directory is not included in the supplied ZIP.
+- `package.json` is not included, so dependencies and start scripts are not pinned/documented in the repository snapshot.
+- A safe `.env.example` should be provided instead of committing `.env`.
+- The DR Region resources, RDS configuration/replication, MGN configuration, GuardDuty/EventBridge/Lambda configuration, and some manual network integrations are not represented by the supplied CloudFormation templates.
+
+Consequently, this repository documents the project and provides selected IaC templates; it is not currently a complete end-to-end deployment bundle.
+
+## Infrastructure as Code and manual configuration
+
+### CloudFormation templates included
+
+The following templates are present in this repository:
+
+| Suggested order | Template                  | Main responsibility                                                                                 |
+| --------------: | ------------------------- | --------------------------------------------------------------------------------------------------- |
+|               1 | `hub-vpc-us-east-2.yml`   | Create the primary Hub VPC foundation                                                               |
+|               2 | `spoke-vpc-us-east-2.yml` | Create the primary Spoke VPC foundation                                                             |
+|               3 | `TGW.yml`                 | Create TGW connectivity between the VPCs                                                            |
+|               4 | `firewall.yml`            | Define Network Firewall resources                                                                   |
+|               5 | `NLB.yml`                 | Create the internal NLB in the Spoke VPC                                                            |
+|               6 | `ALB.yml`                 | Create the ingress ALB in the Hub VPC                                                               |
+|               7 | `LT.yml` and `asg-1.yml`  | Define the application Launch Template and Auto Scaling Group                                       |
+|               8 | `cloud-front&waf.yml`     | Define CloudFront and WAF resources (CloudFront-scope WAF resources must be created in `us-east-1`) |
+
+### Resources configured outside the supplied templates
+
+The deployed project also used resources and configuration that are not fully represented in the supplied YAML files. Based on the implementation review and the user's confirmation, these include:
+
+- AWS Application Migration Service (MGN) source replication, test/cutover workflow, and migrated server/AMI preparation.
+- Amazon RDS for MySQL and the cross-Region read replica in `ca-central-1`.
+- DR Region VPC/application infrastructure, including the DR load balancer and Auto Scaling Group.
+- GuardDuty detector/configuration, EventBridge rule, and Lambda function used by the tested incident-response workflow.
+- CloudFront distribution and its associated WAF Web ACL/rules, where the deployed configuration was completed outside the supplied templates or required manual completion.
+- Network Firewall endpoint route-table associations and ALB target-group registration for the NLB endpoint IPs, as applicable to the deployed environment.
+
+The precise creation method can differ by resource. The important distinction is that **absence from this repository's CloudFormation files does not mean the resource was absent from the deployed project**.
+
+## Application
+
+The application is an Employee Management System built with Node.js, Express, EJS, and MySQL. The available source files show:
+
+- `app.js` initializes Express, configures URL-encoded/JSON request parsing, serves a `public` directory, configures EJS, and mounts employee routes.
+- `db.js` reads database connection values from environment variables and creates a MySQL connection.
+- `employee.js` implements routes to list employees, render the add form, and insert a new employee using parameterized SQL values.
+- `index.ejs` and `add.ejs` provide the application views.
+
+### Required environment variables
+
+Create a local `.env` file from a safe template. Do not commit credentials.
+
+```dotenv
+PORT=3000
+DB_HOST=<RDS_ENDPOINT_OR_LOCAL_DB_HOST>
+DB_USER=<DATABASE_USERNAME>
+DB_PASSWORD=<DATABASE_PASSWORD>
+DB_NAME=company
 ```
-User Request
-│
-▼
-[ Amazon CloudFront ] (Global Edge Caching & TLS Termination)
-│
-▼
-[ AWS WAF ] (Inspects SQLi, XSS, Bad IPs)
-│
-▼
-[ Internet Gateway ]
-│
-▼
-[ Ahmed-ALB ] (Hub Public Subnets 10.0.0.0/24 & 10.0.1.0/24)
-│
-▼
-[ AWS Network Firewall ] (Inspects Hub -> Spoke Traffic)
-│
-▼
-[ Transit Gateway (TGW) ] (Hub Attachment -> TGW Route Table -> Spoke Attachment)
-│
-▼
-[ Ahmed-NLB ] (Spoke Private Subnets 10.1.0.0/24 & 10.1.1.0/24)
-│
-▼
-[ Target Group / Auto Scaling EC2 Instances ] (Runs Node.js App Port 80)
-│
-▼
-[ Amazon RDS MySQL ] (Primary DB Port 3306)
-```
----
 
-## 2. Outbound Egress Traffic Flow (Updates / External APIs)
-```
-[ Private EC2 Instance ]
-│
-▼
-[ Transit Gateway (TGW) ]
-│
-▼
-[ AWS Network Firewall ] (Stateful Egress Rule Evaluation)
-│
-▼
-[ NAT Gateway ] (Hub NAT Subnet 10.0.7.0/24)
-│
-▼
-[ Internet Gateway ] -> [ External Internet ]
-```
----
+### Database schema
 
-## 3. Administrative SSH Management Flow
-```
-Administrator
-│
-▼
-[ Internet Gateway ]
-│
-▼
-[ Jump Server ] (Hub Subnet 10.0.6.0/24)
-│
-▼
-[ AWS Network Firewall ] (Inspects SSH Traffic Port 22)
-│
-▼
-[ Transit Gateway (TGW) ]
-│
-▼
-[ Private EC2 Application Nodes ] (Port 22)
-```
----
+The application expects a MySQL database named `company` with an `employees` table containing at least the columns used by the application: `id`, `name`, `department`, and `salary`.
 
-# 🛡 Security Architecture & Automation
+Example schema (use a dedicated least-privilege database user and a strong secret in real deployments):
 
-The infrastructure follows a multi-layered **Defense-in-Depth** model:
-```
-+---------------------------------------------------------------------------------+
-| 1. EDGE SECURITY: Amazon CloudFront + AWS WAF                                   |
-+---------------------------------------------------------------------------------+
-│
-▼
-+---------------------------------------------------------------------------------+
-| 2. NETWORK INSPECTION: AWS Network Firewall + Security Groups                   |
-+---------------------------------------------------------------------------------+
-│
-▼
-+---------------------------------------------------------------------------------+
-| 3. COMPUTE ISOLATION: Private Subnets + IAM Roles (No Keys)                     |
-+---------------------------------------------------------------------------------+
-│
-▼
-+---------------------------------------------------------------------------------+
-| 4. AUTOMATED THREAT RESPONSE: GuardDuty -> Security Hub -> EventBridge -> Lambda|
-+---------------------------------------------------------------------------------+
-```
-
----
-
-
-### AWS WAF Protection Rules
-
-- `AWSManagedRulesAmazonIpReputationList`
-- `AWSManagedRulesCommonRuleSet`
-- `AWSManagedRulesKnownBadInputsRuleSet`
-- `AWSManagedRulesSQLiRuleSet`
-
-### Stateful Firewall Rule Policies
-
-AWS Network Firewall enforces explicit rule pass-lists:
-
-- **Port 22 (SSH):** Allowed strictly from `JumpSubnet` (`10.0.6.0/24`) to `Spoke VPC` (`10.1.0.0/16`).
-- **Port 80/443 (HTTP/S):** Allowed between `ALB Subnets` and `Spoke VPC`.
-- **Port 53 (DNS):** Allowed for internal UDP/TCP queries.
-- **Implicit Deny:** All unmapped inter-VPC traffic is dropped.
-
-### Event-Driven Incident Response Pipeline
-
-1. **Detection:** **Amazon GuardDuty** continuously monitors VPC Flow Logs, DNS logs, and CloudTrail events.
-2. **Aggregation:** Findings flow directly to **AWS Security Hub**.
-3. **Trigger:** An **Amazon EventBridge** rule evaluates findings for High/Critical severity conditions.
-4. **Remediation:** An **AWS Lambda** function is invoked to parse the affected EC2 Instance ID and execute an automated API call (`ec2:StopInstances`) to isolate the target immediately for forensic analysis.
-
----
-
-# 💻 Source Application Architecture & Stack
-
-Prior to cloud migration, the legacy application was provisioned and configured on an Amazon Linux 2023 host with a local MariaDB database and a Node.js Express application structure.
-
-The complete Node.js application codebase and SQL initialization scripts are organized within the repository directory structure:
-
-- **Environment Variables:** Located in [`.env`](./.env)
-- **Application Core:** Located in [`app.js`](./app.js)
-- **Database Connection Module:** Located in [`db.js`](./db.js)
-- **Route Handlers:** Located in [`employee.js`](./employee.js)
-- **UI Templates:** Located in [`index.ejs`](./index.ejs) & [`add.ejs`](./add.ejs)
-
-### 1. Database Schema & Initial Seeding (MariaDB / MySQL)
-
-````sql
+```sql
 CREATE DATABASE company;
-CREATE USER 'employee'@'localhost' IDENTIFIED BY 'Employee@123';
-GRANT ALL PRIVILEGES ON company.* TO 'employee'@'localhost';
-FLUSH PRIVILEGES;
 
 USE company;
 
@@ -290,215 +259,123 @@ CREATE TABLE employees (
     salary DECIMAL(10,2) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
-INSERT INTO employees(name, department, salary)
-VALUES
-('Ahmed', 'Cloud', 8000),
-('Sara', 'HR', 6500),
-('Ali', 'DevOps', 9000);
-````
----
-
-### 2. Application Structure & Key Configurations
-```
-employee-app/
-├── app.js               # Express Server & Middleware Configuration
-├── db.js                # MySQL2 Connection Pool setup via dotenv
-├── .env                 # Environment Variables (DB Host, Port, Credentials)
-├── package.json         # Node.js Dependencies (express, ejs, mysql2, dotenv)
-├── routes/
-│   └── employee.js      # CRUD Route Handlers (GET /, GET /add, POST /add)
-└── views/
-    ├── index.ejs        # Dashboard UI (Bootstrap 5)
-    └── add.ejs          # Employee Registration Form
 ```
 
-Environment Variables (.env)
-Note: Post-migration, DB_HOST is updated from localhost to the active Amazon RDS Endpoint.
+### Application packaging required before a fresh deployment
 
----
+Before treating the application as independently deployable, add and verify:
 
-### 3. Application Process Management (`systemd` Service Integration)
+- `package.json` with pinned dependencies and start script.
+- `routes/employee.js` (or update the import path in `app.js`).
+- The `public/` directory if static assets are required.
+- `.env.example` containing placeholders only.
+- A documented process-manager/service configuration if the app is expected to start automatically after reboot.
 
-To ensure high availability, automatic startup on boot, and process resilience, the Node.js application was configured as a background system daemon managed by **Linux `systemd`**.
+## Migration workflow — AWS MGN
 
-#### Systemd Service Unit File (`/etc/systemd/system/employee-app.service`)
+The application server was migrated using AWS Application Migration Service:
 
-```ini
-[Unit]
-Description=Employee Management Application
-After=network.target mariadb.service
+1. Install/configure the AWS Replication Agent on the source server.
+2. Replicate source disks to the MGN staging area in the target Region.
+3. Launch a test instance and validate the operating system and application.
+4. Perform final synchronization and cutover.
+5. Prepare an AMI from the migrated application server for subsequent EC2 deployment through a Launch Template/Auto Scaling Group.
 
-[Service]
-Type=simple
-User=ec2-user
-WorkingDirectory=/home/ec2-user/employee-app
-ExecStart=/usr/bin/node /home/ec2-user/employee-app/app.js
-Restart=always
-RestartSec=10
-Environment=NODE_ENV=production
+The project evidence includes a completed cutover state and a migrated application image. MGN configuration is not included in the CloudFormation templates in this repository.
 
-[Install]
-WantedBy=multi-user.target
-```
+- MGN Cutover Completed
+  ![MGN Cutover Completed](screenshots/MGN-Cutover-Completed.png)
 
-### Service Verification Commands:
+- Migrated Application AMI
+  ![Migrated Application AMI](screenshots/Migrated-Application-AMI.png)
 
-```
-# Reload daemon and enable auto-start on boot
-sudo systemctl daemon-reload
-sudo systemctl enable employee-app
+## Database and regional disaster recovery
 
-# Start and verify process status
-sudo systemctl start employee-app
-sudo systemctl status employee-app
+The primary database runs in `us-east-2`, with a cross-Region MySQL read replica in `ca-central-1`.
 
-# Verify logs via journalctl
-sudo journalctl -u employee-app -f
+The tested recovery sequence was:
 
-Operational Impact: Configuring systemd ensured that when AWS Application Migration Service (MGN) replicated the server and when the Auto Scaling Group spun up new EC2 nodes, the Node.js application automatically initialized and bound to Port 3000 without manual administrator intervention.
-```
+1. Promote the cross-Region read replica in `ca-central-1` to a standalone writable DB instance.
+2. Update/reconfigure the DR application to connect to the promoted database endpoint.
+3. Run and validate the Employee Management application in `ca-central-1`.
 
----
+- Primary RDS
+  ![Primary RDS](screenshots/Primary-RDS.png)
 
+- Promote Read Replica
+  ![Promote Read Replica](screenshots/Promotion.png)
 
-# 🚚 Application Migration Strategy (AWS MGN)
+**Recovery characteristics:**
 
-The original Employee Management System was migrated using **AWS Application Migration Service (MGN)**:
+- Replication is asynchronous database replication; it is not block-level replication.
+- Promotion and application cutover were manually initiated in the tested workflow.
+- No numeric RTO or RPO is claimed in this README because measured values have not yet been supplied.
+- A successful DR test does not by itself establish automatic DNS failover or a fully automated regional recovery process.
 
-1. **Agent Installation:** Installed the AWS Replication Agent on the legacy source server.
-2. **Continuous Block-Level Replication:** Replicated disk volumes asynchronously into the staging area in `us-east-2`.
-3. **Test Launch:** Non-disruptive testing of the migrated instance inside isolated subnets to verify Node.js runtime and DB connections.
-4. **Cutover Execution:** Final synchronization followed by cutover launch.
-5. **AMI Creation:** The cutover instance was sanitized and saved as an **Amazon Machine Image (AMI)**, which now serves as the base image inside the CloudFormation **Launch Template**.
+## Edge security — CloudFront and AWS WAF
 
+The application was exposed through Amazon CloudFront, with an AWS WAF Web ACL associated with the distribution. The WAF protection included the following AWS managed rule groups in the project configuration:
 
----
+- `AWSManagedRulesAmazonIpReputationList`
+- `AWSManagedRulesCommonRuleSet`
+- `AWSManagedRulesKnownBadInputsRuleSet`
+- `AWSManagedRulesSQLiRuleSet`
 
+![CloudFront Distribution](screenshots/CloudFront-Distribution.png)
 
-# 🔄 Post-Migration Application Refactoring & Infrastructure Scaling
+The user confirmed that the Web ACL was associated with CloudFront and that block rules were tested. The repository includes a CloudFormation definition for the edge resources, but the supplied deployment evidence also indicates that the initial CloudFormation stack attempt did not complete successfully; the final working configuration therefore should not be assumed to have been created solely by that stack.
 
-After successfully completing the live migration of the source server via **AWS Application Migration Service (MGN)**, the application tier was refactored to decouple compute from the database layer and transition into a stateless, scalable architecture.
+## Automated threat response — GuardDuty, EventBridge, and Lambda
 
-### Step-by-Step Refactoring & Promotion Process:
+The user confirmed that the incident-response workflow was tested successfully:
 
-1. **Initial Migration Instance Launch:**
-   - The migrated source server instance was launched inside the **Spoke VPC** (`Spoke-VPC`).
-   - At this stage, the application was still configured to connect to the local database (`DB_HOST=localhost`).
+1. GuardDuty generates a finding for suspicious activity.
+2. An EventBridge rule matches the relevant finding criteria.
+3. EventBridge invokes the Lambda function.
+4. The Lambda extracts the affected EC2 instance identifier and calls the EC2 `StopInstances` API.
 
-2. **Database Decoupling & RDS Integration:**
-   - An initial temporary **Amazon Machine Image (AMI)** was created from the migrated instance and launched via a temporary Launch Template.
-   - The application environment configuration (`.env`) was updated on the instance to replace the local database with the **Amazon RDS MySQL Endpoint**:
-     ```env
-     # Old Configuration (Local DB):
-     # DB_HOST=localhost
+![GuardDuty Findings](screenshots/GuardDuty.png)
+![Lambda Function](screenshots/Lambda.png)
 
-     # New Production Configuration (Decoupled Managed RDS):
-     DB_HOST=company.c123456789.us-east-2.rds.amazonaws.com
-     DB_USER=employee
-     DB_PASSWORD=Employee@123
-     DB_NAME=company
-     PORT=3000
-     ```
+This workflow is designed as a basic automated containment demonstration. In a production environment, the finding filters, permissions, notification, evidence preservation, and isolation/remediation process should be reviewed carefully before enabling automatic instance shutdown.
 
-3. **Golden AMI Creation (`Ahmed-Image-2`):**
-   - After validating database connectivity between the EC2 application instance and the Amazon RDS MySQL instance, a final **Golden AMI** (`ami-0510cd8e46ffcb9f3`) was captured.
+## Validation performed
 
-4. **Production Launch Template & Auto Scaling Group Deployment:**
-   - The **Golden AMI** was embedded into the production **Launch Template** (`Ahmed-Employee-App-LT`).
-   - The **Auto Scaling Group** (`Ahmed-Employee-App-SG1`) was configured using this template.
-   - Now, any new EC2 instance automatically launched by the Auto Scaling Group boots up pre-configured, instantly connected to the central Amazon RDS database without requiring any manual environment configuration.
+The following outcomes have been confirmed by the project owner:
 
+| Area            | Validation                                                    | Result    |
+| --------------- | ------------------------------------------------------------- | --------- |
+| MGN migration   | Source workload migration/cutover completed                   | Confirmed |
+| Database DR     | Cross-Region read replica promoted to standalone writable DB  | Confirmed |
+| Application DR  | Application ran successfully in `ca-central-1` after failover | Confirmed |
+| Edge security   | CloudFront associated with WAF Web ACL; block rules tested    | Confirmed |
+| Threat response | GuardDuty → EventBridge → Lambda EC2 stop workflow tested     | Confirmed |
 
+Other tests such as exact measured RTO/RPO, full AZ-failure testing, sustained load testing, and repeatable clean-account deployment are not claimed here unless separately measured and documented.
 
+## Security and operational notes
 
----
+- Never commit `.env`, database passwords, access keys, private keys, or other secrets.
+- Rotate any credential that has previously been committed to a public repository.
+- Restrict SSH ingress to trusted administration paths; prefer AWS Systems Manager Session Manager where practical.
+- Review security groups and Network Firewall rules using least privilege.
+- Use HTTPS between CloudFront and the origin where supported and correctly configured. Verify the actual origin protocol policy and ALB listener/certificate configuration before claiming end-to-end encrypted origin traffic.
+- Ensure application instances do not depend on manually configured local state if they are expected to be replaceable by an Auto Scaling Group.
+- Define backup retention, restore testing, replication lag monitoring, and a documented DR runbook.
 
-# 🔄 Disaster Recovery (DR) Strategy
+## Future improvements
 
-To satisfy strict RTO (Recovery Time Objective) and RPO (Recovery Point Objective) goals:
+- Add the missing application packaging files (`package.json`, `routes/`, `public/`, `.env.example`).
+- Add CloudFormation templates or clearly maintained deployment scripts for the manually provisioned RDS, MGN, DR, GuardDuty, EventBridge, and Lambda resources where appropriate.
+- Add a DR runbook with the exact promotion, application configuration, validation, and failback steps.
+- Measure and publish actual RTO and RPO from repeatable exercises.
+- Document the exact CloudFront origin protocol, ALB listener/certificate setup, and DNS cutover method.
+- Review subnet public-IP settings, route tables, NAT placement, security-group ingress, and multi-AZ resilience.
+- Keep `assets/architecture-overview.png` synchronized with the deployed architecture, including verified CIDRs, AZ placement, route tables, and failover steps.
 
-- **Primary Site:** `us-east-2` hosting the active Multi-AZ RDS MySQL instance.
-- **DR Site:** `ca-central-1` hosting a Cross-Region Read Replica.
-- **Replication:** Asynchronous block-level replication over the AWS global backbone.
-- **Failover Procedure:** In the event of a regional outage in Ohio:
-  1. Promote the Canada Read Replica to a standalone writeable primary database.
-  2. Reconfigure application launch templates or DNS routing to point to the new regional endpoint.
-
----
-
-# 🚀 Deployment Order & IaC Templates
-
-Deploy the CloudFormation stacks sequentially to ensure cross-stack output exports (`ImportValue`) are satisfied:
-
-| Order | Template File | Stack Name | Description |
-| :---: | :--- | :--- | :--- |
-| **1** | `hub-vpc-us-east-2.yml` | `Hub-VPC-Stack` | Provisions Hub VPC, Subnets, IGW, NATGW, and Jump Server |
-| **2** | `spoke-vpc-us-east-2.yml` | `Spoke-VPC-Stack` | Provisions Spoke VPC and Application Subnets |
-| **3** | `TGW.yml` | `TGW-Stack` | Provisions Transit Gateway, Attachments, and Route Tables |
-| **4** | `firewall.yml` | `Firewall-Stack` | Provision AWS Network Firewall Policy and Rule Groups |
-| **5** | `NLB.yml` | `NLB-Stack` | Deploys Internal Pass-Through NLB in Spoke VPC |
-| **6** | `ALB.yml` | `ALB-Stack` | Deploys Ingress ALB and Security Groups in Hub VPC |
-| **7** | `asg-1.yml` | `ASG-Stack` | Configures Launch Template & Auto Scaling Policy |
-| **8** | `cloud-front&waf.yml` | `Edge-Stack` | Provisions WAF Web ACL and CloudFront CDN |
-
----
-
-# ⚠ Manual Post-Deployment Configurations
-
-Due to dynamic ID assignments in AWS, perform these two post-deployment steps:
-
-### 1. Route Table GWLB Endpoint Association
-AWS Network Firewall generates Gateway Load Balancer (GWLB) Endpoint IDs dynamically upon creation:
-1. Open the **AWS Network Firewall Console** -> Select `Ahmed-FW` -> Note Endpoint IDs for `us-east-2a` and `us-east-2b`.
-2. Navigate to **VPC Route Tables**:
-   - In `ALB-RT`, add route: `10.1.0.0/16` -> Target: `vpce-xxxxxx` (Firewall Endpoint AZ-A).
-   - In `SpokeTGWRouteTable`, add route: `0.0.0.0/0` -> Target: `vpce-yyyyyy` (Firewall Endpoint AZ-B).
-
-### 2. ALB Target Group Registration for NLB ENIs
-Because the ALB uses an `IP` target type to route across VPCs through TGW:
-1. Go to **EC2 -> Network Interfaces (ENIs)**.
-2. Search for ENIs attached to `Ahmed-NLB` and copy their private IP addresses (e.g., `10.1.0.X`, `10.1.1.Y`).
-3. Open **EC2 -> Target Groups** -> Select `Ahmed-ALB-TG`.
-4. Register the copied private IPs on Port 80.
-
----
-
-# 🧪 Testing & Validation Results
-
-| Test Category | Test Case Description | Expected Result | Status |
-| :--- | :--- | :--- | :---: |
-| **Migration** | AWS MGN continuous block sync and test launch | Successful app startup on EC2 | ✅ Passed |
-| **Edge Ingress** | Access app via CloudFront URL | Request served via HTTPS | ✅ Passed |
-| **WAF Protection** | Submit SQLi query `?id=' OR 1=1 --` | HTTP 403 Forbidden Returned | ✅ Passed |
-| **Firewall Routing** | Ping/HTTP traffic between Hub & Spoke | Inspected & permitted per rules | ✅ Passed |
-| **High Availability** | Manually terminate one App EC2 instance | ASG launches replacement; ALB stays 200 OK | ✅ Passed |
-| **Auto Scaling** | Stress test CPU utilization past 70% | ASG automatically scales out nodes | ✅ Passed |
-| **Security Automation**| Trigger GuardDuty finding on test host | Lambda automatically stops instance | ✅ Passed |
-| **Disaster Recovery** | Promote Read Replica in `ca-central-1` | Replica promoted to standalone Primary DB | ✅ Passed |
-
----
-
-# 🛠 Tech Stack & Tools
-
-* **Cloud Provider:** Amazon Web Services (AWS)
-* **Infrastructure as Code:** AWS CloudFormation
-* **Core Compute & Scaling:** EC2, Auto Scaling Groups, Launch Templates
-* **Networking & Routing:** VPC, Transit Gateway, Application Load Balancer, Network Load Balancer, Route 53
-* **Security & Inspection:** AWS Network Firewall, AWS WAF, Security Groups, GuardDuty, Security Hub
-* **CDN & Edge:** Amazon CloudFront
-* **Database:** Amazon RDS MySQL (Multi-AZ, Cross-Region Replica)
-* **Automation:** AWS Lambda, Amazon EventBridge, AWS Systems Manager
-* **Migration:** AWS Application Migration Service (MGN)
-* **Application Stack:** Node.js, Linux (Amazon Linux 2023)
-
----
-
-# 👨‍💻 Author
+## Author
 
 **Ahmed Elfar**
-*Cloud & DevOps Engineer*
 
-* **GitHub:** [ahmedelfar25](https://github.com/ahmedelfar25)
-* **LinkedIn:** [Ahmed Elfar](https://www.linkedin.com/in/ahmed-elfar-6672112a4)
-````
+- GitHub: [ahmedelfar25](https://github.com/ahmedelfar25)
+- LinkedIn: [Ahmed Elfar](https://www.linkedin.com/in/ahmed-elfar-6672112a4)
