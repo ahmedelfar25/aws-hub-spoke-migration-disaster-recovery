@@ -363,16 +363,6 @@ Other tests such as exact measured RTO/RPO, full AZ-failure testing, sustained l
 - Ensure application instances do not depend on manually configured local state if they are expected to be replaceable by an Auto Scaling Group.
 - Define backup retention, restore testing, replication lag monitoring, and a documented DR runbook.
 
-## Future improvements
-
-- Add the missing application packaging files (`package.json`, `routes/`, `public/`, `.env.example`).
-- Add CloudFormation templates or clearly maintained deployment scripts for the manually provisioned RDS, MGN, DR, GuardDuty, EventBridge, and Lambda resources where appropriate.
-- Add a DR runbook with the exact promotion, application configuration, validation, and failback steps.
-- Measure and publish actual RTO and RPO from repeatable exercises.
-- Document the exact CloudFront origin protocol, ALB listener/certificate setup, and DNS cutover method.
-- Review subnet public-IP settings, route tables, NAT placement, security-group ingress, and multi-AZ resilience.
-- Keep `assets/architecture-overview.png` synchronized with the deployed architecture, including verified CIDRs, AZ placement, route tables, and failover steps.
-
 ## Author
 
 **Ahmed Elfar**
